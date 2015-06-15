@@ -1,0 +1,379 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#ifndef SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
+#define SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
+
+#include <boost/shared_ptr.hpp>
+
+#include <list>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "base/lifetime.h"
+#include "base/queue_task.h"
+#include "bgp/bgp_condition_listener.h"
+#include "bgp/inet/inet_route.h"
+
+class BgpRoute;
+class BgpTable;
+class RoutingInstance;
+class BgpTable;
+class BgpServer;
+class SandeshResponse;
+class ServiceChainConfig;
+class ShowServicechainInfo;
+
+class ServiceChain : public ConditionMatch {
+public:
+    //
+    // List of more specific routes resulted in Aggregate route
+    //
+    typedef std::set<BgpRoute *> RouteList;
+    //
+    // Map of Virtual Network subnet prefix to List of More Specific routes
+    //
+    typedef std::map<Ip4Prefix, RouteList> PrefixToRouteListMap;
+    //
+    // Map of External Connecting route to Service Chain Route
+    //
+    typedef std::set<BgpRoute *> ExtConnectRouteList;
+    //
+    // List of path ids for the connected route
+    //
+    typedef std::set<uint32_t> ConnectedPathIdList;
+
+    ServiceChain(RoutingInstance *src, RoutingInstance *dest,
+                 RoutingInstance *connected,
+                 const std::vector<std::string> &subnets, IpAddress addr);
+
+    // Compare config and return whether cfg has updated
+    bool CompareServiceChainCfg(const ServiceChainConfig &cfg);
+
+    const IpAddress &service_chain_addr() const {
+        return service_chain_addr_;
+    }
+
+    void set_connected_route(BgpRoute *connected) {
+        connected_route_ = connected;
+        connected_path_ids_.clear();
+
+        if (!connected_route_)
+            return;
+
+        for (Route::PathList::iterator it = connected->GetPathList().begin();
+             it != connected->GetPathList().end(); it++) {
+            BgpPath *path = static_cast<BgpPath *>(it.operator->());
+
+            // Infeasible paths are not considered
+            if (!path->IsFeasible()) break;
+
+            // take snapshot of all ECMP paths
+            if (connected_route_->BestPath()->PathCompare(*path, true)) break;
+
+            // Use the nexthop attribute of the connected path as the path id.
+            uint32_t path_id = path->GetAttr()->nexthop().to_v4().to_ulong();
+            connected_path_ids_.insert(path_id);
+        }
+    }
+
+    RoutingInstance *src_routing_instance() const {
+        return src_;
+    }
+
+    RoutingInstance *connected_routing_instance() const {
+        return connected_;
+    }
+
+    RoutingInstance *dest_routing_instance() const {
+        return dest_;
+    }
+
+    bool connected_route_valid() const {
+        return (connected_route_ && !connected_route_->IsDeleted() &&
+                connected_route_->BestPath() &&
+                connected_route_->BestPath()->IsFeasible());
+    }
+
+    BgpRoute *connected_route() const {
+        return connected_route_;
+    }
+
+    const ConnectedPathIdList &ConnectedPathIds() {
+        return connected_path_ids_;
+    }
+
+    void AddServiceChainRoute(Ip4Prefix prefix, const InetRoute *orig_route,
+                              const ConnectedPathIdList &old_path_ids,
+                              bool aggregate);
+    void RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate);
+
+    bool add_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
+        PrefixToRouteListMap::iterator it =
+            prefix_to_routelist_map_.find(aggregate);
+        assert(it != prefix_to_routelist_map_.end());
+        bool ret = false;
+        if (it->second.empty()) {
+            // Add the aggregate for the first time
+            ret = true;
+        }
+        it->second.insert(more_specific);
+        return ret;
+    }
+
+    bool delete_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
+        PrefixToRouteListMap::iterator it =
+            prefix_to_routelist_map_.find(aggregate);
+        assert(it != prefix_to_routelist_map_.end());
+        it->second.erase(more_specific);
+        return it->second.empty();
+    }
+
+    BgpTable *src_table() const;
+
+    BgpTable *connected_table() const;
+
+    BgpTable *dest_table() const;
+
+    const PrefixToRouteListMap &prefix_to_route_list_map() const {
+        return prefix_to_routelist_map_;
+    }
+
+    PrefixToRouteListMap *prefix_to_route_list_map() {
+        return &prefix_to_routelist_map_;
+    }
+
+    virtual bool Match(BgpServer *server, BgpTable *table,
+                       BgpRoute *route, bool deleted);
+    virtual std::string ToString() const;
+
+    void FillServiceChainInfo(ShowServicechainInfo *info) const;
+
+    void set_connected_table_unregistered() {
+        connected_table_unregistered_ = true;
+    }
+
+    void set_dest_table_unregistered() {
+        dest_table_unregistered_ = true;
+    }
+
+    bool dest_table_unregistered() const {
+        return dest_table_unregistered_;
+    }
+
+    bool connected_table_unregistered() const {
+        return connected_table_unregistered_;
+    }
+
+    bool unregistered() const {
+        return connected_table_unregistered_ && dest_table_unregistered_;
+    }
+
+    const ExtConnectRouteList &ext_connecting_routes() const {
+        return ext_connect_routes_;
+    }
+
+    ExtConnectRouteList *ext_connecting_routes() {
+        return &ext_connect_routes_;
+    }
+
+    bool aggregate_enable() const {
+        return aggregate_;
+    }
+
+    void set_aggregate_enable() {
+        aggregate_ = true;
+    }
+
+    void ManagedDelete() {
+        // Trigger of service chain delete is from config
+    }
+
+private:
+    RoutingInstance *src_;
+    RoutingInstance *dest_;
+    RoutingInstance *connected_;
+    ConnectedPathIdList connected_path_ids_;
+    BgpRoute *connected_route_;
+    IpAddress service_chain_addr_;
+    PrefixToRouteListMap prefix_to_routelist_map_;
+    // List of routes from Destination VN for external connectivity
+    ExtConnectRouteList ext_connect_routes_;
+    bool connected_table_unregistered_;
+    bool dest_table_unregistered_;
+    bool aggregate_;  // Whether the host route needs to be aggregated
+    LifetimeRef<ServiceChain> src_table_delete_ref_;
+
+    // Helper function to match
+    bool is_more_specific(BgpRoute *route, Ip4Prefix *aggregate_match);
+    bool is_aggregate(BgpRoute *route);
+
+    bool is_connected_route(BgpRoute *route) {
+        InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
+        if (service_chain_addr() == inet_route->GetPrefix().ip4_addr())
+            return true;
+        return false;
+    }
+
+    DISALLOW_COPY_AND_ASSIGN(ServiceChain);
+};
+
+typedef ConditionMatchPtr ServiceChainPtr;
+
+class ServiceChainState : public ConditionMatchState {
+public:
+    explicit ServiceChainState(ServiceChainPtr info) : info_(info) {
+    }
+    ServiceChainPtr info() {
+        return info_;
+    }
+
+private:
+    ServiceChainPtr info_;
+    DISALLOW_COPY_AND_ASSIGN(ServiceChainState);
+};
+
+struct ServiceChainRequest {
+    enum RequestType {
+        MORE_SPECIFIC_ADD_CHG,
+        MORE_SPECIFIC_DELETE,
+        CONNECTED_ROUTE_ADD_CHG,
+        CONNECTED_ROUTE_DELETE,
+        EXT_CONNECT_ROUTE_ADD_CHG,
+        EXT_CONNECT_ROUTE_DELETE,
+        UPDATE_ALL_ROUTES,
+        STOP_CHAIN_DONE,
+        SHOW_SERVICE_CHAIN,
+        SHOW_PENDING_CHAIN
+    };
+
+    ServiceChainRequest(RequestType type, BgpTable *table, BgpRoute *route,
+                        Ip4Prefix aggregate_match, ServiceChainPtr info)
+        : type_(type), table_(table), rt_(route),
+          aggregate_match_(aggregate_match), info_(info), snh_resp_(NULL) {
+    }
+
+    ServiceChainRequest(RequestType type, SandeshResponse *resp,
+        const std::string &search_string)
+        : type_(type),
+          table_(NULL),
+          rt_(NULL),
+          snh_resp_(resp),
+          search_string_(search_string) {
+    }
+
+    RequestType type_;
+    BgpTable    *table_;
+    BgpRoute    *rt_;
+    Ip4Prefix   aggregate_match_;
+    ServiceChainPtr info_;
+    SandeshResponse *snh_resp_;
+    std::string search_string_;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ServiceChainRequest);
+};
+
+class ServiceChainMgr {
+public:
+    // Set of service chains created in the system
+    typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
+
+    // At the time of processing, service chain request, all required
+    // routing instance may not be created. Create a list of service chain
+    // waiting for a routing instance to get created
+    typedef std::set<RoutingInstance *> UnresolvedServiceChainList;
+
+    explicit ServiceChainMgr(BgpServer *server);
+    ~ServiceChainMgr();
+
+    // Creates a new service chain between two Virtual network
+    // If the two routing instance is already connected, it updates the
+    // connected route address for existing service chain
+    bool LocateServiceChain(RoutingInstance *src, 
+                            const ServiceChainConfig &cfg);
+
+    // Remove the existing service chain between from routing instance
+    void StopServiceChain(RoutingInstance *src);
+
+    bool RequestHandler(ServiceChainRequest *req);
+
+    void StopServiceChainDone(BgpTable *table, ConditionMatch *info);
+
+    BgpServer *server() {
+        return server_;
+    }
+
+    void AddPendingServiceChain(RoutingInstance *rtinstance) {
+        pending_chain_.insert(rtinstance);
+    }
+
+    void DeletePendingServiceChain(RoutingInstance *rtinstance) {
+        pending_chain_.erase(rtinstance);
+    }
+
+    const ServiceChainMap &chain_set() const {
+        return chain_set_;
+    }
+
+    const UnresolvedServiceChainList &pending_chains() const {
+        return pending_chain_;
+    }
+
+    void RoutingInstanceCallback(std::string name, int op);
+
+    void StartResolve();
+    bool ResolvePendingServiceChain();
+    size_t PendingQueueSize() const { return pending_chain_.size(); }
+
+    void Enqueue(ServiceChainRequest *req);
+
+    bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
+
+    ServiceChain *FindServiceChain(const std::string &src);
+    ServiceChain *FindServiceChain(RoutingInstance *rtinstance);
+
+    bool aggregate_host_route() const {
+        return aggregate_host_route_;
+    }
+
+    void set_aggregate_host_route(bool value) {
+        aggregate_host_route_= value;
+    }
+
+private:
+    friend class ServiceChainTest;
+
+    // All service chain related actions are performed in the context
+    // of this task. This task has exclusion with db::DBTable task.
+    static int service_chain_task_id_;
+
+    void PeerRegistrationCallback(IPeer *peer, BgpTable *table,
+                                  bool unregister);
+
+    ServiceChainMap chain_set_;
+    int id_;
+    int registration_id_;
+    UnresolvedServiceChainList pending_chain_;
+    BgpServer *server_;
+    BgpConditionListener *listener_;
+
+    // Work Queue to handle requests posted from Match function, called
+    // in the context of db::DBTable task.
+    // The actions are performed in the bgp::ServiceChain task context.
+    void DisableQueue() { process_queue_->set_disable(true); }
+    void EnableQueue() { process_queue_->set_disable(false); }
+    WorkQueue<ServiceChainRequest *> *process_queue_;
+
+    // Task trigger to resolve pending dependencies.
+    boost::scoped_ptr<TaskTrigger> resolve_trigger_;
+
+    bool aggregate_host_route_;
+
+    DISALLOW_COPY_AND_ASSIGN(ServiceChainMgr);
+};
+
+#endif  // SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_

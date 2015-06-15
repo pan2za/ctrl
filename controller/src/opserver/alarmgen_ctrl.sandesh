@@ -1,0 +1,145 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ *  alarmgen_ctrl.sandesh
+ *
+ *  Sandesh messages for Alarm Generator
+ */
+
+include "sandesh/library/common/sandesh_alarm_base.sandesh"
+
+request sandesh PartitionOwnershipReq {
+    1: u32                      partition
+    2: bool                     ownership
+}
+
+response sandesh PartitionOwnershipResp {
+    1: bool                     status
+}
+
+request sandesh PartitionStatusReq {
+    1: i32 partition
+}
+
+struct UVEKeyInfo {
+    1: string                   key
+    2: u32                      count
+}
+
+struct UVEGenInfo {
+    1: string                   generator
+    2: list<UVEKeyInfo>         uves
+}
+
+struct UVECollInfo {
+    1: string                   collector
+    2: list<UVEGenInfo>         uves
+}
+
+response sandesh PartitionStatusResp {
+    1: bool                     enabled
+    2: u32                      partition
+    3: u64                      offset
+    4: list<UVECollInfo>        uves
+}
+
+request sandesh UVETableInfoReq {
+    1: u32                     partition
+}
+
+struct UVEStructInfo {
+    1: string                  type
+    2: string                  content
+}
+
+struct UVEObjectInfo {
+    1: string                  name
+    3: list<UVEStructInfo>     structs
+}
+
+struct UVETableInfo {
+    1: string table
+    7: list<UVEObjectInfo> uves
+}
+
+
+response sandesh UVETableInfoResp {
+    2: u32 partition
+    7: list<UVETableInfo> tables
+}
+
+request sandesh UVETablePerfReq {
+    1: string                      table
+}
+
+response sandesh UVETablePerfResp {
+    1: string table
+    3: u64 updates
+    4: u64 get_time
+    5: u64 pub_time
+    6: u64 call_time
+}
+
+request sandesh UVETableAlarmReq {
+    1: string                      table
+}
+
+response sandesh UVETableAlarmResp {
+    1: string table
+    2: list<sandesh_alarm_base.UVEAlarms> uves
+}
+
+struct UVETypeInfo {
+    1: string                     collector
+    2: string                     generator
+    3: string                     type
+    4: u32                        count
+}
+
+objectlog sandesh AlarmgenUpdate {
+    1: string             name (key="ObjectGeneratorInfo")
+    3: u32                partition
+    4: string             table
+    5: list<UVEKeyInfo>   keys    (tags="partition,.key")
+    6: list<UVETypeInfo>  notifs  (tags="partition,table,.collector,.generator,.type")
+}
+
+struct AlarmgenStats {
+    1: string                      instance
+    2: u32                         partitions
+    3: u32                         keys
+    4: u64                         updates
+}
+
+struct AlarmgenStatus {
+    1: string                      name (key="ObjectCollectorInfo")
+    2: list<AlarmgenStats>         counters (tags="name:.instance",aggtype="union")
+    4: list<string>                alarmgens (aggtype="union",ulink="ObjectGeneratorInfo:ModuleClientState")
+    3: optional bool               deleted
+}
+
+struct AlarmgenPartionInfo {
+    1: string                      instance
+    2: list<u16>                   partitions
+}
+
+struct AlarmgenPartition {
+    1: string                      name (key="ObjectCollectorInfo")
+    2: list<AlarmgenPartionInfo>   inst_parts (aggtype="union")
+    3: optional bool               deleted
+}
+
+uve sandesh AlarmgenPartitionTrace {
+    1: AlarmgenPartition data
+}
+
+uve sandesh AlarmgenStatusTrace {
+    1: AlarmgenStatus data
+}
+
+trace sandesh AlarmgenTrace {
+    1: "Alarmgen list from Discovery:"
+    2: list<string>     publishers
+}

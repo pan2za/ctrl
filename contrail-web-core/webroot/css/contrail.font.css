@@ -1,0 +1,233 @@
+@font-face {
+    font-family: 'icon-contrail';
+    src:url('/img/font/icon-contrail.eot?-1r7isb');
+    src:url('/img/font/icon-contrail.eot?#iefix-1r7isb') format('embedded-opentype'),
+        url('/img/font/icon-contrail.woff?-1r7isb') format('woff'),
+        url('/img/font/icon-contrail.ttf?-1r7isb') format('truetype'),
+        url('/img/font/icon-contrail.svg?-1r7isb#icon-contrail') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+[class^="icon-contrail-"], [class*=" icon-contrail-"] {
+    font-family: 'icon-contrail';
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-contrail-analytics-db:before {
+    content: "\e600";
+}
+
+.icon-contrail-config-db:before {
+    content: "\e601";
+}
+
+.icon-contrail-contrail-core:before {
+    content: "\e602";
+}
+
+.icon-contrail-virtual-machine:before {
+    content: "\e603";
+}
+
+.icon-contrail-virtual-machine-left:before {
+    content: "\e604";
+}
+
+.icon-contrail-virtual-machine-right:before {
+    content: "\e605";
+}
+
+.icon-contrail-virtual-network:before {
+    content: "\e606";
+}
+
+.icon-contrail-network-ipam:before {
+    content: "\e607";
+}
+
+.icon-contrail-analytics-node:before {
+    content: "\e608";
+}
+
+.icon-contrail-compute-node:before {
+    content: "\e609";
+}
+
+.icon-contrail-config-node:before {
+    content: "\e60a";
+}
+
+.icon-contrail-control-node:before {
+    content: "\e60b";
+}
+
+.icon-contrail-switch:before {
+    content: "\e60c";
+}
+
+.icon-contrail-db-node:before {
+    content: "\e60d";
+}
+
+.icon-contrail-virtual-firewall:before {
+    content: "\e60e";
+}
+
+.icon-contrail-nat:before {
+    content: "\e60f";
+}
+
+.icon-contrail-openstack-node:before {
+    content: "\e610";
+}
+
+.icon-contrail-system-stats:before {
+    content: "\e611";
+}
+
+.icon-contrail-virtual-router:before {
+    content: "\e612";
+}
+
+.icon-contrail-webui-node:before {
+    content: "\e613";
+}
+
+.icon-contrail-system-logs:before {
+    content: "\e614";
+}
+
+.icon-contrail-project:before {
+    content: "\e615";
+}
+
+.icon-contrail-router:before {
+    content: "\e616";
+}
+
+.icon-contrail-network-policy:before {
+    content: "\e617";
+}
+
+.icon-contrail-security-group:before {
+    content: "\e618";
+}
+
+.icon-contrail-reverse-flow:before {
+    content: "\e619";
+}
+
+.icon-contrail-trace-flow:before {
+    content: "\e61a";
+}
+
+@font-face {
+    font-family: 'contrail-core';
+    src:url('/css/fonts/contrail-core.eot?e1umid');
+    src:url('/css/fonts/contrail-core.eot?#iefixe1umid') format('embedded-opentype'),
+    url('/css/fonts/contrail-core.woff?e1umid') format('woff'),
+    url('/css/fonts/contrail-core.ttf?e1umid') format('truetype'),
+    url('/css/fonts/contrail-core.svg?e1umid#contrail-core') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+[class^="icon-contrail-core"], [class*=" icon-contrail-core"] {
+    font-family: 'contrail-core';
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+.icon-contrail-coreswitch:before {
+    content: "\b700";
+}
+.icon-contrail-spine:before {
+    content: "\e601";
+}
+.icon-contrail-tor:before {
+    content: "\e601";
+}
+.icon-contrail-vrouter:before {
+    content: url(/img/vrouter.png);
+}
+
+/* icon class helpers */
+.icon-rotate-45:before {
+    -webkit-transform: rotate(45deg);
+    -moz-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    -o-transform: rotate(45deg);
+    transform: rotate(45deg);
+    filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=1);
+}
+
+@font-face {
+    font-family: 'mxfont';
+    src:url('/css/fonts/mxfont.eot?usowgf');
+    src:url('/css/fonts/mxfont.eot?#iefixusowgf') format('embedded-opentype'),
+        url('/css/fonts/mxfont.woff?usowgf') format('woff'),
+        url('/css/fonts/mxfont.ttf?usowgf') format('truetype'),
+        url('/css/fonts/mxfont.svg?usowgf#mxfont') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+[class^="mxicon"], [class*=" mxicon"] {
+    font-family: 'mxfont';
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.mxicon-line-card:before {
+    content: "\61";
+}
+
+.mxicon-switch-card:before {
+    content: "\62";
+}
+
+.mxicon-routing-engine:before {
+    content: "\63";
+}
+
+.mxicon-pf-engine:before {
+    content: "\64";
+}
+
+.mxicon-fabrics:before {
+    content: "\65";
+}
+
+.mxicon-power-supply:before {
+    content: "\66";
+}
+
+.mxicon-fan-tray:before {
+    content: "\67";
+}
+

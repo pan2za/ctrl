@@ -1,0 +1,8 @@
+python-subunit
+testrepository
+flexmock
+coverage
+pyaml
+httpretty
+distribute>=0.7.3
+

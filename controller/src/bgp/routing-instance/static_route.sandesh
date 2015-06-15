@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+include "bgp/bgp_peer.sandesh"
+
+struct StaticRouteInfo {
+    1: string prefix;
+    2: bool static_rt;
+    3: string nexthop;
+    4: bgp_peer.ShowRouteBrief nexthop_rt;
+    5: list<string> route_target_list;
+}
+
+struct StaticRouteEntriesInfo {
+    1: string ri_name;
+    2: list<StaticRouteInfo> static_route_list;
+}
+
+response sandesh ShowStaticRouteResp {
+    1: list<StaticRouteEntriesInfo> static_route_entries;
+}
+
+request sandesh ShowStaticRouteReq {
+    1: string ri_name;
+}

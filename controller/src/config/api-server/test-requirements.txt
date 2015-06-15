@@ -1,0 +1,8 @@
+ipdb
+python-subunit
+testrepository
+flexmock
+coverage
+webtest
+pyaml
+distribute>=0.7.3

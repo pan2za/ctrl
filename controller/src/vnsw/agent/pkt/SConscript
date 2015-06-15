@@ -1,0 +1,40 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# services directory
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('pkt.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+ 
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
+
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+pkt_srcs = [
+                'agent_stats.cc',
+                'flow_table.cc',
+                'flow_handler.cc',
+                'packet_buffer.cc',
+                'pkt_init.cc',
+                'pkt_init.cc',
+                'pkt_handler.cc',
+                'pkt_flow_info.cc',
+                'pkt_sandesh_flow.cc',
+                'proto.cc',
+                'proto_handler.cc',
+                ]
+
+libservices = env.Library('pkt',
+                 sandesh_objs +
+                 pkt_srcs)
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

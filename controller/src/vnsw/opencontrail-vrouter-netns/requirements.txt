@@ -1,0 +1,4 @@
+eventlet
+netaddr
+requests
+docker-py

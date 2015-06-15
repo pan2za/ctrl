@@ -1,0 +1,100 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+autogen_infra_sources = [
+                 '#/tools/generateds/generateDS.py',
+                 '#/tools/generateds/TypeGenerator.py',
+                 '#/tools/generateds/ccsvc.py',
+                 '#/tools/generateds/idl_parser.py',
+                 '#/tools/generateds/ServiceGenerator.py',
+                ]
+
+autogen_sources = [
+                 '#controller/src/schema/services.xsd',
+                ]
+
+autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_cmd = '%s -f -l py -o %s -g service' % (autogen_script, Dir('discovery/services').path)
+
+generated_files = [ 
+                  'discovery/services.py',
+                ]
+generated_rule = env.Command(generated_files,
+                             '#controller/src/schema/services.xsd',
+                             autogen_cmd + ' $SOURCE')
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), '#controller/src/discovery/' + file))
+
+local_sources = [
+           '__init__.py',
+           'disc_server_zk.py',
+           'disc_server.py',
+           'disc_utils.py',
+           'disc_consts.py',
+           'disc_exceptions.py',
+           'client.py',
+           'disc_zk.py',
+           'disc_cassdb.py',
+           'output.py',
+          ]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("discovery", '#controller/src/discovery/' + file))
+
+introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_depends = [generated_rule]
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(introspect_pkg)
+
+sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+
+env.Default(sdist_gen)
+
+# generated files depend on autogeneration infra parts
+
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(local_sources_rules, autogen_infra_sources)
+
+# install everything before building distribution
+env.Depends(sdist_gen, sdist_depends)
+env.Alias('src/discovery:discovery', sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+
+env.Alias('install', 
+    env.Install(env['INSTALL_CONF'], 'contrail-discovery.conf'))
+env.Alias('install', env.InstallAs(
+    env['INSTALL_INITD'] + 
+    '/contrail-discovery', 'contrail-discovery.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-discovery.ini'))
+
+subdirs = [
+           'client'
+          ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)

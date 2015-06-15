@@ -1,0 +1,360 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+#include "analytics/sflow_parser.h"
+
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+
+#include "base/logging.h"
+
+#include <arpa/inet.h>
+
+const std::string SFlowIpaddress::ToString() const {
+    std::stringstream ss;
+    if (type == SFLOW_IPADDR_V4) {
+        char ipv4_str[INET_ADDRSTRLEN];
+        ss << inet_ntop(AF_INET, address.ipv4,
+                        ipv4_str, INET_ADDRSTRLEN);
+    } else if (type == SFLOW_IPADDR_V6) {
+        char ipv6_str[INET6_ADDRSTRLEN];
+        ss << inet_ntop(AF_INET6, address.ipv6,
+                        ipv6_str, INET6_ADDRSTRLEN);
+    }
+    return ss.str();
+}
+
+SFlowParser::SFlowParser(const uint8_t* buf, size_t len)
+    : raw_datagram_(buf), length_(len), end_ptr_(buf+len),
+      decode_ptr_(reinterpret_cast<const uint32_t*>(buf)) {
+}
+
+SFlowParser::~SFlowParser() {
+}
+
+int SFlowParser::Parse(SFlowData* const sflow_data) {
+    if (ReadSFlowHeader(sflow_data->sflow_header) < 0) {
+        return -1;
+    }
+    if (sflow_data->sflow_header.version != 5) {
+        // unsupported version. Don't proceed futher.
+        return -1;
+    }
+    for (uint32_t nsamples = 0; nsamples < sflow_data->sflow_header.nsamples;
+         nsamples++) {
+        uint32_t sample_type, sample_len;
+        if (ReadData32(sample_type) < 0) {
+            return -1;
+        }
+        if (ReadData32(sample_len) < 0) {
+            return -1;
+        }
+        switch(sample_type) {
+        case SFLOW_FLOW_SAMPLE: {
+            SFlowFlowSampleData* fs_data(new SFlowFlowSampleData());
+            if (ReadSFlowFlowSample(*fs_data, false) < 0) {
+                delete fs_data;
+                return -1;
+            }
+            sflow_data->flow_samples.push_back(fs_data);
+            break;
+        }
+        case SFLOW_FLOW_SAMPLE_EXPANDED: {
+            SFlowFlowSampleData* fs_data(new SFlowFlowSampleData());
+            if (ReadSFlowFlowSample(*fs_data, true) < 0) {
+                delete fs_data;
+                return -1;
+            }
+            sflow_data->flow_samples.push_back(fs_data);
+            break;
+        }
+        default:
+            LOG(DEBUG, "Skip SFlow Sample Type: " << sample_type);
+            if (SkipBytes(sample_len) < 0) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int SFlowParser::ReadSFlowHeader(SFlowHeader& sflow_header) {
+    if (ReadData32(sflow_header.version) < 0) {
+        return -1;
+    }
+    if (ReadIpaddress(sflow_header.agent_ip_address) < 0) {
+        return -1;
+    }
+    if (ReadData32(sflow_header.agent_subid) < 0) {
+        return -1;
+    }
+    if (ReadData32(sflow_header.seqno) < 0) {
+        return -1;
+    }
+    if (ReadData32(sflow_header.uptime) < 0) {
+        return -1;
+    }
+    if (ReadData32(sflow_header.nsamples) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+int SFlowParser::ReadSFlowFlowSample(SFlowFlowSampleData& flow_sample_data, 
+                                     bool expanded) {
+    SFlowFlowSample& flow_sample = flow_sample_data.flow_sample;
+    if (ReadData32(flow_sample.seqno) < 0) {
+        return -1;
+    }
+    if (expanded) {
+        if (ReadData32(flow_sample.sourceid_type) < 0) {
+            return -1;
+        }
+        if (ReadData32(flow_sample.sourceid_index) < 0) {
+            return -1;
+        }
+    } else {
+        uint32_t sourceid;
+        if (ReadData32(sourceid) < 0) {
+            return -1;
+        }
+        flow_sample.sourceid_type = sourceid >> 24;
+        flow_sample.sourceid_index = sourceid & 0x00FFFFFF;
+    }
+    if (ReadData32(flow_sample.sample_rate) < 0) {
+        return -1;
+    }
+    if (ReadData32(flow_sample.sample_pool) < 0) {
+        return -1;
+    }
+    if (ReadData32(flow_sample.drops) < 0) {
+        return -1;
+    }
+    if (expanded) {
+        if (ReadData32(flow_sample.input_port_format) < 0) {
+            return -1;
+        }
+        if (ReadData32(flow_sample.input_port) < 0) {
+            return -1;
+        }
+        if (ReadData32(flow_sample.output_port_format) < 0) {
+            return -1;
+        }
+        if (ReadData32(flow_sample.output_port) < 0) {
+            return -1;
+        }
+    } else {
+        uint32_t input, output;
+        if (ReadData32(input) < 0) {
+            return -1;
+        }
+        if (ReadData32(output) < 0) {
+            return -1;
+        }
+        flow_sample.input_port_format = input >> 30;
+        flow_sample.input_port = input & 0x3FFFFFFF;
+        flow_sample.output_port_format = output >> 30;
+        flow_sample.output_port = output & 0x3FFFFFFF; 
+    }
+    if (ReadData32(flow_sample.nflow_records) < 0) {
+        return -1;
+    }
+    for (uint32_t flow_rec = 0; flow_rec < flow_sample.nflow_records; 
+         ++flow_rec) {
+        uint32_t flow_record_type, flow_record_len;
+        if (ReadData32(flow_record_type) < 0) {
+            return -1;
+        }
+        if (ReadData32(flow_record_len) < 0) {
+            return -1;
+        }
+        switch(flow_record_type) {
+        case SFLOW_FLOW_HEADER: {
+            SFlowFlowHeader* flow_header(new SFlowFlowHeader());
+            if (ReadSFlowFlowHeader(*flow_header) < 0) {
+                delete flow_header;
+                return -1;
+            }
+            flow_sample_data.flow_records.insert(flow_record_type, 
+                                                 flow_header);
+            break;
+        }
+        default:
+            if (SkipBytes(flow_record_len) < 0) {
+                return -1;
+            }
+            LOG(DEBUG, "Skip processing of Flow Record: " << flow_record_type);
+        }
+    }
+    return 0;
+}
+
+int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
+    if (ReadData32(flow_header.protocol) < 0) {
+        return -1;
+    }
+    if (ReadData32(flow_header.frame_length) < 0) {
+        return -1;
+    }
+    if (ReadData32(flow_header.stripped) < 0) {
+        return -1;
+    }
+    if (ReadData32(flow_header.header_length) < 0) {
+        return -1;
+    }
+    flow_header.header = (uint8_t*)decode_ptr_;
+    if (SkipBytes(flow_header.header_length) < 0) {
+        return -1;
+    }
+    switch(flow_header.protocol) {
+    case SFLOW_FLOW_HEADER_ETHERNET_ISO8023: {
+        int eth_header_len = 0;
+        if ((eth_header_len = DecodeEthernetHeader(flow_header.header,
+                                 flow_header.decoded_eth_data)) < 0) {
+            return -1;
+        }
+        flow_header.is_eth_data_set = true;
+        // is this ip packet?
+        if (flow_header.decoded_eth_data.ether_type == ETHERTYPE_IP) {
+            int ip_header_len = 0;
+            const uint8_t* iph = flow_header.header + eth_header_len;
+            if ((ip_header_len = DecodeIpv4Header(iph,
+                                    flow_header.decoded_ip_data)) < 0) {
+                return -1;
+            }
+            const uint8_t* l4h = iph + ip_header_len;
+            if (DecodeLayer4Header(l4h, flow_header.decoded_ip_data) < 0) {
+                return -1;
+            }
+            flow_header.is_ip_data_set = true;
+        }
+        break;
+    }
+    case SFLOW_FLOW_HEADER_IPV4: {
+        int ip_header_len = 0;
+        if ((ip_header_len = DecodeIpv4Header(flow_header.header,
+                             flow_header.decoded_ip_data)) < 0) {
+            return -1;
+        }
+        const uint8_t* l4h = flow_header.header + ip_header_len;
+        if (DecodeLayer4Header(l4h, flow_header.decoded_ip_data) < 0) {
+            return -1;
+        }
+        flow_header.is_ip_data_set = true;
+        break;
+    }
+    default:
+        LOG(DEBUG, "Skip processing of protocol header: " <<
+            flow_header.protocol);
+    }
+    return 0;
+}
+
+int SFlowParser::DecodeEthernetHeader(const uint8_t* ethh,
+                                      SFlowFlowEthernetData& eth_data) {
+    // add sanity check
+
+    struct ether_header* eth = (struct ether_header*)ethh;
+    memcpy(&eth_data.src_mac, eth->ether_shost, 6);
+    memcpy(&eth_data.dst_mac, eth->ether_dhost, 6);
+    eth_data.ether_type = ntohs(eth->ether_type);
+    if (eth_data.ether_type == ETHERTYPE_VLAN) {
+        uint8_t *vlan_data = const_cast<uint8_t*>(ethh) + sizeof(ether_header);
+        eth_data.vlan_id = ((vlan_data[0] << 8) + vlan_data[1]) & 0x0FFF;
+        // Now, read the ether_type
+        eth_data.ether_type = ntohs(*(uint16_t*)(vlan_data + 2));
+        return sizeof(struct ether_header) + 4;
+    }
+    return sizeof(struct ether_header);
+}
+
+int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h,
+                                  SFlowFlowIpData& ip_data) {
+    // add sanity check
+
+    struct ip* ip = (struct ip*)ipv4h;
+    ip_data.length = ntohs(ip->ip_len);
+    ip_data.protocol = ip->ip_p;
+    ip_data.src_ip.type = SFLOW_IPADDR_V4;
+    memcpy(ip_data.src_ip.address.ipv4, &ip->ip_src.s_addr, 4);
+    ip_data.dst_ip.type = SFLOW_IPADDR_V4;
+    memcpy(ip_data.dst_ip.address.ipv4, &ip->ip_dst.s_addr, 4);
+    ip_data.tos = ntohs(ip->ip_tos);
+    return (ip->ip_hl << 2);
+}
+
+int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
+                                    SFlowFlowIpData& ip_data) {
+    // add sanity check
+
+    switch(ip_data.protocol) {
+    case IPPROTO_ICMP: {
+        struct icmp* icmp = (struct icmp*)l4h;
+        if (icmp->icmp_type == ICMP_ECHO ||
+            icmp->icmp_type == ICMP_ECHOREPLY) {
+            ip_data.src_port = ntohs(icmp->icmp_id);
+            ip_data.dst_port = ICMP_ECHOREPLY;
+        } else {
+            ip_data.src_port = 0;
+            ip_data.dst_port = ntohs(icmp->icmp_type);
+        }
+        break;
+    }
+    case IPPROTO_TCP: {
+        tcphdr* tcp = (tcphdr*)l4h;
+        ip_data.src_port = ntohs(tcp->source);
+        ip_data.dst_port = ntohs(tcp->dest);
+        break;
+    }
+    case IPPROTO_UDP: {
+        udphdr* udp = (udphdr*)l4h;
+        ip_data.src_port = ntohs(udp->source);
+        ip_data.dst_port = ntohs(udp->dest);
+        break;
+    }
+    default:
+        LOG(DEBUG, "Skip processing of layer 4 protocol: " <<
+            ip_data.protocol);
+    }
+    return 0;
+}
+
+int SFlowParser::SkipBytes(size_t len) {
+    // All the fields in SFlow datagram are 4-byte aligned
+    decode_ptr_ += ((len+3)/4);
+    if (decode_ptr_ > reinterpret_cast<const uint32_t*>(end_ptr_)) {
+        return -1;
+    }
+    return 0;
+}
+int SFlowParser::ReadData32(uint32_t& data32) {
+    if ((decode_ptr_+1) > reinterpret_cast<const uint32_t*>(end_ptr_)) {
+        return -1;
+    }
+    data32 = ntohl(*decode_ptr_++);
+    return 0;
+}
+int SFlowParser::ReadBytes(uint8_t *bytes, size_t len) {
+    memcpy(bytes, decode_ptr_, len);
+    return SkipBytes(len);
+}
+int SFlowParser::ReadIpaddress(SFlowIpaddress& ipaddr) {
+    if (ReadData32(ipaddr.type) < 0) {
+        return -1;
+    }
+    if (ipaddr.type == SFLOW_IPADDR_V4) {
+        if (ReadBytes(ipaddr.address.ipv4, 4) < 0) {
+            return -1;
+        }
+    } else if (ipaddr.type == SFLOW_IPADDR_V6) {
+        if (ReadBytes(ipaddr.address.ipv6, 16) < 0) {
+            return -1;
+        }
+    } else {
+        return -1;
+    }
+    return 0;
+}

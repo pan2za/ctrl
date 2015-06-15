@@ -1,0 +1,179 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import sys
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/base/sandesh/',
+                     ])
+
+env.Prepend(LIBS=[  'gendb',
+                    'cdb',
+                    'cpuinfo',
+                    'ds',
+                    'io',
+                    'sandesh',
+                    'http',
+                    'httpc',
+                    'http_parser',
+                    'pugixml',
+                    'xml',
+                    'curl',
+                    'thrift',
+                    'hiredis',
+                    'process_info',
+                    'io',
+		    'net',
+                    'base',
+                    'sandeshvns',
+                    'boost_regex',
+                    'boost_filesystem',
+                    'boost_program_options'])
+
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+
+def SrcBuildDir(x):
+    return '#/' + Dir('.').path + '/../' + x;
+
+libs = MapBuildDir([ 'gendb',
+        'cdb',
+        'xml',
+        'base',
+        'io',
+	'net',
+        'http', 
+        'http/client',
+        'sandesh'])
+
+env.Append(LIBPATH=libs)
+env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('cdb'), SrcBuildDir('discovery/client'),
+    SrcBuildDir('gendb'), SrcBuildDir('io'), SrcBuildDir('sandesh')])
+
+includes = MapBuildDir(['gendb', 'cdb', 'analytics', 'query_engine'])
+env.Append(CPPPATH = includes)
+env.Append(CPPPATH = ['#/src/gendb', '#/src/analytics', '#/build/include/thrift'])
+
+RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.cc')
+
+# copied from analytics SConscript
+env_excep = env.Clone()
+env_excep.CppEnableExceptions()
+
+env_noWerror = env.Clone()
+while env_noWerror['CCFLAGS'].count('-Werror') > 0:
+    env_noWerror['CCFLAGS'].remove('-Werror')
+
+env_noWerror_excep = env_noWerror.Clone()
+env_noWerror_excep.CppEnableExceptions()
+
+env.Install('', '../analytics/analytics.sandesh') 
+# Generate the source files
+SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+SandeshGenObjs = env.Object(SandeshGenSrcs)
+env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
+
+buildinfo_dep_libs = [
+    '../../lib/libhiredis.a',
+    '../../lib/libhttp.a',
+    '../../lib/libhttp_parser.a',
+    '../../lib/libsandesh.a', 
+    '../../lib/libsandeshvns.a', 
+    '../../lib/libthrift.a', 
+    '../base/libbase.a',
+    '../base/libcpuinfo.a',
+    '../cdb/libcdb.a',
+    '../gendb/libgendb.a',
+    '../io/libio.a',
+]
+
+qed_sources = [
+    'QEOpServerProxy.cc',
+    'qed.cc',
+    'options.cc',
+]
+
+qed_except_sources = [
+    'db_query.cc',
+    'post_processing.cc',
+    'query.cc',
+    'select.cc',
+    'select_fs_query.cc',
+    'set_operation.cc',
+    'stats_select.cc',
+    'stats_query.cc',
+    'where_query.cc',
+]
+
+qed_objs = map(lambda x : env.Object(x), qed_sources)
+qed_except_objs = map(lambda x : env_excep.Object(x), qed_except_sources)
+
+env.GenerateBuildInfoCode(
+    target = ['buildinfo.h', 'buildinfo.cc'],
+    source = buildinfo_dep_libs + qed_sources + SandeshGenSrcs +
+    qed_except_sources +
+    ['../analytics/redis_connection.cc', '../analytics/vizd_table_desc.cc', 'rac_alloc.cc'],
+    path = Dir('.').path)
+
+build_obj = map(lambda x : env.Object(x), ['buildinfo.cc'])
+
+qed = env.Program(
+        target = 'qed', 
+        source = qed_objs + qed_except_objs + build_obj +
+        SandeshGenObjs +  RedisConn_obj +
+        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
+        )
+
+if env['OPT'] == 'coverage':
+    env.AppendUnique(CCFLAGS='-g')
+    env.AppendUnique(CCFLAGS='-O0')
+    env.AppendUnique(CCFLAGS='--coverage')
+    rac = 'rac_alloc.cc'
+else:
+    rac = 'rac_alloc_test.cc'
+
+qedt = env.UnitTest(
+        target = 'qedt', 
+        source = qed_objs + qed_except_objs + build_obj +
+        SandeshGenObjs +  RedisConn_obj + 
+        ['../analytics/vizd_table_desc.o', rac,
+        '../analytics/viz_constants.o'])
+
+env.Alias("src/query_engine:qed", qed)
+env.Alias("src/query_engine:qedt", qedt)
+
+env.Depends(qed, '#/build/include/hiredis/hiredis.h')
+env.Depends(qedt, '#/build/include/hiredis/hiredis.h')
+
+QueryEnv = env.Clone()
+env.Default(qed)
+
+test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
+
+# Please update sandesh/common/vns.sandesh on process name change
+env.Alias('install',
+        env.InstallAs(env['INSTALL_BIN'] + '/contrail-query-engine', qed))
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'contrail-query-engine.conf'))
+env.Alias('install',
+        env.InstallAs(env['INSTALL_INITD'] + '/contrail-query-engine',
+        'contrail-qe.initd.supervisord'))
+env.Alias('install',
+        env.InstallAs(env['INSTALL_CONF'] + 
+        '/supervisord_analytics_files' + '/contrail-query-engine.ini',
+        'contrail-query-engine.ini'))

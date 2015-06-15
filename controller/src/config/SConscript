@@ -1,0 +1,41 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# src directory
+
+import os
+import re
+import sys
+
+Import('BuildEnv')
+
+CfgmEnv = BuildEnv.Clone()
+
+#
+# Deprecated
+# Builds into build/<optimization>
+#
+subdirs=[
+    'api-server',
+    'common',
+    'device-manager',
+    'schema-transformer',
+    'test',
+    'utils',
+    'uve',
+    'vnc_openstack',
+]
+
+CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
+
+#
+# Build into build/noarch
+#
+noarch_subdirs = [
+    'svc-monitor',
+]
+for sdir in noarch_subdirs:
+    CfgmEnv.SConscript('%s/SConscript' % sdir, exports='CfgmEnv',
+                       variant_dir='#build/noarch/config/%s' % sdir,
+                       duplicate = 1)

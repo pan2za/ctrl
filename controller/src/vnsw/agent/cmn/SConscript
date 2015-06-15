@@ -1,0 +1,16 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_factory.cc',
+                   'agent_signal.cc']
+
+vnswcmn = env.Library('vnswcmn', vnswcmn_sources)
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

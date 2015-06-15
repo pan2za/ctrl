@@ -1,0 +1,52 @@
+//
+// vnc_api.sandesh
+//
+// VNC API Object Log
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+struct VncApiCommon {
+    1: string identifier_uuid // object identifier
+    2: string object_type (key="ConfigObjectTable") // object type
+    3: string identifier_name (key="ConfigObjectTable") // object name
+    4: string url;             // The object URL
+    5: string operation;       // get/post/update/delete
+    6: string useragent;       // which program is doing operation
+    7: string remote_ip;       // which host is doing operation
+    8: optional string params;
+    9: optional string body;
+
+    // The below are re-arranged for index of <domain:project:user>
+    10: optional string domain (key="ConfigObjectTableByUser");
+    11: optional string project (key="ConfigObjectTableByUser");
+    12: optional string user (key="ConfigObjectTableByUser");
+    13: optional string error;
+}
+
+traceobject sandesh VncApiReadLog {
+    1: VncApiCommon api_log;
+}
+
+objectlog sandesh VncApiConfigLog {
+    1: VncApiCommon api_log;
+}
+
+systemlog sandesh VncApiError {
+    1: string api_error_msg;
+}
+
+struct ContrailConfigElem {
+    1: string attribute
+    2: string value // This holds the JSON-encoded value of the attribute
+}
+
+struct ContrailConfig {
+    1: string name (key="none")
+    2: list<ContrailConfigElem> properties
+    3: bool deleted
+}
+
+uve sandesh ContrailConfigTrace {
+    1: ContrailConfig data
+}

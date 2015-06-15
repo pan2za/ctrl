@@ -1,0 +1,128 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct ControllerProtoStats {
+    1: u32 open;
+    2: u32 keepalive;
+    3: u32 update;
+    4: u32 close;
+}
+
+struct AgentXmppData {
+    1: string controller_ip;
+    2: string state;
+    3: string peer_name;
+    4: string peer_address;
+    5: optional string cfg_controller;
+    6: optional string mcast_controller;
+    7: string last_state;
+    8: string last_event;
+    9: string last_state_at;
+    10: u32 flap_count;
+    11: string flap_time;
+    12: ControllerProtoStats rx_proto_stats;
+    13: ControllerProtoStats tx_proto_stats;
+    14: string xmpp_auth_type;
+}
+
+struct AgentXmppDnsData {
+    1: string dns_controller_ip;
+    2: string state;
+    3: string peer_name;
+    4: string peer_address;
+    5: string last_state;
+    6: string last_event;
+    7: string last_state_at;
+    8: u32 flap_count;
+    9: string flap_time;
+    10: ControllerProtoStats rx_proto_stats;
+    11: ControllerProtoStats tx_proto_stats;
+    12: string xmpp_auth_type;
+}
+
+
+traceobject sandesh AgentXmppTrace {
+    1: string peer;
+    2: string vrf;
+    3: string event;
+}
+
+traceobject sandesh AgentXmppIFMapVmExportTrace {
+    1: string vm;
+    2: string vmi;
+    3: string event;
+}
+
+traceobject sandesh AgentXmppIFMapSeqTrace {
+    1: u32 xmpp_server_index,
+    2: u64 new_seq_num;
+    3: string event;
+}
+
+traceobject sandesh AgentXmppRouteExport {
+    1: string peer;
+    2: string vrf;
+    3: string ip;
+    4: bool associate;
+    5: u32 label;
+}
+
+traceobject sandesh AgentXmppRouteImport {
+    1: string peer;
+    2: string vrf;
+    3: string ip;
+    4: u16 plen;
+    5: string nexthop;
+    6: u32 label;
+    7: string vn;
+}
+
+traceobject sandesh AgentXmppMcastSubscribe {
+    1: string peer;
+    2: string vrf;
+    3: string source;
+    4: string group;
+}
+
+traceobject sandesh AgentXmppSession {
+    1: string peer;
+    2: string event;
+    3: string tree_builder;
+    4: string message;
+}
+
+trace sandesh AgentXmppDiscoveryConnection {
+    1: string message;
+    2: "index =";
+    3: u16 index;
+    4: "server =";
+    5: string server;
+    6: string data;
+}
+
+trace sandesh AgentXmppWalker {
+    1: string message;
+    2: string node_name;
+    3: string peer;
+}
+
+trace sandesh AgentXmppTimer {
+    1: string operation;
+    2: string timer_name;
+    3: string channel;
+}
+
+request sandesh AgentXmppConnectionStatusReq {
+}
+
+response sandesh AgentXmppConnectionStatus {
+    1: list<AgentXmppData>peer;
+}
+
+request sandesh AgentDnsXmppConnectionStatusReq {
+}
+
+response sandesh AgentDnsXmppConnectionStatus {
+    1: list<AgentXmppDnsData>peer;
+}

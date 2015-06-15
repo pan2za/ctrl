@@ -1,0 +1,4 @@
+An adapter for using hiredis with the Boost.Asio Reactor
+
+ryan.graham@gmail.com
+

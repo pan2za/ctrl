@@ -1,0 +1,183 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ *  sandesh_uve.sandesh
+ *
+ *  Sandesh Library definitions
+ */
+
+include "io/io.sandesh"
+
+struct SandeshMessageStats {
+    1: i64 messages_sent;
+    2: i64 bytes_sent;
+    3: i64 messages_received;
+    4: i64 bytes_received;
+    5: i64 messages_sent_dropped;
+    6: i64 messages_received_dropped;
+}
+
+struct SandeshMessageTypeStats {
+    1: string message_type;
+    2: SandeshMessageStats stats;
+}
+
+struct SandeshQueueStats {
+    1: u64 enqueues;
+    2: u64 count;
+}
+
+struct SandeshGeneratorStats {
+    1: list<SandeshMessageTypeStats> type_stats;
+    2: SandeshMessageStats aggregate_stats;
+    3: SandeshQueueStats send_queue_stats;
+}
+
+request sandesh SandeshMessageStatsReq {
+}
+
+response sandesh SandeshMessageStatsResp {
+    1: SandeshGeneratorStats stats;
+}
+
+request sandesh SandeshLoggingParamsSet {
+    1: optional bool enable;
+    2: optional string category;
+    3: optional string log_level;
+    4: optional bool trace_print;
+    5: optional bool enable_flow_log;
+}
+
+request sandesh SandeshLoggingParamsStatus {
+}
+
+request sandesh SandeshSendingParamsSet {
+    1: optional bool high;
+    2: optional u32 queue_count;
+    3: optional string sending_level;
+}    
+
+request sandesh SandeshSendingParamsReset {
+}
+
+request sandesh SandeshSendingParamsStatus {
+}
+
+struct SandeshSendingParams {
+    1: bool high;
+    2: u32 queue_count;
+    3: string sending_level;
+}
+
+response sandesh SandeshSendingParamsResponse {
+    1: list<SandeshSendingParams> info;
+}
+
+response sandesh SandeshLoggingParams {
+    1: bool enable;
+    2: string category;
+    3: string log_level;
+    4: bool trace_print;
+    5: bool enable_flow_log;
+}
+
+request sandesh SandeshSendQueueSet {
+    1: optional bool enable;
+}
+
+request sandesh SandeshSendQueueStatus {
+}
+
+response sandesh SandeshSendQueueResponse {
+   1: bool enable;
+}
+
+request sandesh CollectorInfoRequest {
+}
+
+response sandesh CollectorInfoResponse {
+    1: string ip;
+    2: i32 port;
+    3: string status;
+}
+
+request sandesh SandeshUVECacheReq {
+    1: string tname;
+    2: optional string key;
+}
+
+response sandesh SandeshUVECacheResp {
+    1: u32 returned;
+}
+
+request sandesh SandeshUVETypesReq {
+}
+
+struct SandeshUVETypeInfo {
+    1: string type_name (link="SandeshUVECacheReq")
+    2: u32 seq_num;
+}
+
+response sandesh SandeshUVETypesResp {
+    1: list<SandeshUVETypeInfo> type_info;    
+}
+
+struct SandeshStateMachineEvStats {
+    1: string                     event;
+    2: u64                        enqueues;
+    3: u64                        dequeues;
+    4: u64                        enqueue_fails;
+    5: u64                        dequeue_fails;
+}
+
+struct SandeshStateMachineStats {
+    1: optional list<SandeshStateMachineEvStats> ev_stats
+    2: optional string                     state
+    3: optional u64                        state_since
+    4: optional string                     last_state
+    5: optional string                     last_event
+    6: optional u64                        last_event_at
+}
+
+struct SandeshClientInfo {
+    1: optional string status
+    2: optional u32 successful_connections
+    3: optional u32 pid
+    4: optional u32 http_port
+    5: optional u64 start_time
+    6: optional string collector_name
+    7: optional string primary
+    8: optional string secondary
+    9: optional io.SocketIOStats rx_socket_stats
+    10: optional io.SocketIOStats tx_socket_stats
+}
+
+struct SandeshSessionStats {
+    1: u64                        num_recv_msg
+    2: u64                        num_recv_msg_fail
+    3: u64                        num_recv_fail
+    4: u64                        num_send_msg
+    5: u64                        num_send_msg_fail
+    6: u64                        num_send_buffer_fail
+    7: u64                        num_wait_msgq_enqueue
+    8: u64                        num_wait_msgq_dequeue
+    9: u64                        num_write_ready_cb_error
+}
+
+struct ModuleClientState {
+    1: string                              name (key="ObjectGeneratorInfo")
+    2: optional bool                       deleted
+    3: optional SandeshClientInfo          client_info
+    4: optional SandeshGeneratorStats      msg_stats
+    5: optional u64                        sm_queue_count (aggtype="stats", hbin="50")
+    6: optional SandeshStateMachineStats   sm_stats
+    7: optional SandeshSessionStats        session_stats
+    8: optional io.SocketIOStats           session_rx_socket_stats
+    9: optional io.SocketIOStats           session_tx_socket_stats
+}
+
+uve sandesh SandeshModuleClientTrace {
+    1: ModuleClientState                   data
+}

@@ -1,0 +1,239 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  collector_uve.sandesh
+//
+
+include "io/io.sandesh"
+include "sandesh/library/common/sandesh_uve.sandesh"
+include "gendb/gendb.sandesh"
+
+struct SandeshStats {
+    1: string                              message_type
+    2: i64                                 messages
+    3: i64                                 bytes
+    4: u64                                 last_msg_timestamp
+}
+
+struct SandeshLogLevelStats {
+    1: string     level 
+    2: u64        messages
+    3: u64        bytes
+    4: u64        last_msg_timestamp
+}
+
+struct SandeshStatsInfo {
+    1: string                          hostname
+    2: list<SandeshStats>              msgtype_stats
+    3: list<SandeshLogLevelStats>      log_level_stats 
+}
+
+struct GeneratorInfoAttr {
+    1: u32                                 connects
+    5: u64                                 connect_time
+    2: u32                                 resets
+    6: u64                                 reset_time
+    4: bool                                in_clear
+}
+
+struct GeneratorInfo {
+    1: string                              hostname
+    3: GeneratorInfoAttr                   gen_attr
+}
+
+struct GeneratorDbStats {
+    1: string                             name (key="ObjectGeneratorInfo")
+    2: optional bool                      deleted
+    3: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    4: optional list<gendb.DbErrors>      errors (tags="")
+    5: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
+}
+
+uve sandesh GeneratorDbStatsUve {
+    1: GeneratorDbStats                   data
+}
+
+// This struct is part of the Generator UVE (key is <source>:<module>)
+//
+// - Vizd will update the msg_stats attribute periodically
+// - The GeneratorInfo attribute will be updated when a Generator is registered
+//   or deregistered with Vizd
+//
+struct ModuleServerState {
+    1: string                              name (key="ObjectGeneratorInfo")
+    2: optional bool                       deleted
+    3: optional list<SandeshStatsInfo>     msg_stats (aggtype="union")
+    4: optional list<GeneratorInfo>        generator_info (aggtype="union")
+    5: optional u64                        sm_queue_count
+    6: optional sandesh_uve.SandeshStateMachineStats sm_stats
+    7: optional u64                        db_queue_count
+    8: optional u64                        db_enqueues
+    9: optional sandesh_uve.SandeshSessionStats session_stats
+    10: optional io.SocketIOStats          session_rx_socket_stats
+    11: optional io.SocketIOStats          session_tx_socket_stats
+    12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
+    13: optional string                    db_drop_level
+    14: optional list<SandeshStats>        db_dropped_msg_stats
+    15: optional string                    sm_drop_level
+}
+
+uve sandesh SandeshModuleServerTrace {
+    1: ModuleServerState                   data
+}
+
+struct GeneratorSummaryInfo {
+    1: string                              source
+    2: string                              module_id    
+    3: string                              state
+    4: string                              instance_id
+    5: string                              node_type    
+}
+
+struct CollectorStats {
+    1: u64                                 no_session_error
+    2: u64                                 no_generator_error
+    3: u64                                 redis_error
+    4: u64                                 session_mismatch_error
+    5: u64                                 sandesh_type_mismatch_error
+}
+
+struct ProtobufCollectorStats {
+    1: string                                       name (key="ObjectCollectorInfo")
+    2: optional bool                                deleted
+    3: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
+    4: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
+    5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
+    6: optional list<gendb.DbTableInfo>             db_table_info (tags=".table_name")
+    7: optional list<gendb.DbErrors>                db_errors (tags="")
+    8: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
+    9: optional u64                                 db_queue_count
+    10: optional u64                                db_enqueues
+}
+
+uve sandesh ProtobufCollectorStatsUve {
+    1: ProtobufCollectorStats                       data
+}
+
+request sandesh ShowCollectorServerReq {
+}
+
+response sandesh ShowCollectorServerResp {
+    1: io.SocketIOStats                    rx_socket_stats
+    2: io.SocketIOStats                    tx_socket_stats
+    3: list<GeneratorSummaryInfo>          generators
+    4: CollectorStats                      stats
+}
+
+// This struct is part of the CollectorInfo UVE. (key is hostname on which this
+// instance of Vizd is running)
+// This part of the UVE externally refers to all generator attached to this instance
+// of Vizd.
+//
+// - Vizd will update the generator_infos attribute periodically
+//
+struct CollectorState {
+    1: string                              name (key="ObjectCollectorInfo")
+    2: optional bool                       deleted
+    4: optional list<GeneratorSummaryInfo> generator_infos
+    5: optional string                     build_info
+    6: optional list<string>               self_ip_list
+    7: optional list<string>               core_files_list
+    8: optional io.SocketIOStats           rx_socket_stats
+    9: optional io.SocketIOStats           tx_socket_stats
+}
+
+uve sandesh CollectorInfo {
+    1: CollectorState                      data
+}
+
+
+trace sandesh publish_uve_update {
+    1: string source
+    2: string mdule
+    3: string type
+    4: string key
+    5: string attr
+    6: bool success
+    7: string node_type
+    8: string instance_id
+}
+
+trace sandesh publish_uve_delete {
+    1: string source
+    2: string mdule
+    3: string type
+    4: string key
+    5: u32 seq
+    6: bool success
+    7: string node_type
+    8: string instance_id
+}
+
+trace sandesh generator_getseq {
+    1: string source
+    2: string mdule
+    3: bool success
+}
+trace sandesh generator_deluves {
+    1: string source
+    2: string mdule
+    3: bool success    
+}
+
+request sandesh DbQueueParamsSet {
+    1: optional bool high;
+    2: optional u32 queue_count;
+    3: optional string drop_level;
+}    
+
+request sandesh DbQueueParamsReset {
+}
+
+request sandesh DbQueueParamsStatus {
+}
+
+request sandesh SmQueueParamsSet {
+    1: optional bool high;
+    2: optional u32 queue_count;
+    3: optional string drop_level;
+}    
+
+request sandesh SmQueueParamsReset {
+}
+
+request sandesh SmQueueParamsStatus {
+}
+
+struct QueueParams {
+    1: bool high;
+    2: u32 queue_count;
+    3: string drop_level;
+}
+
+response sandesh QueueParamsError {
+    1: string error;
+}
+
+response sandesh QueueParamsResponse {
+    1: list<QueueParams> info;
+}
+
+struct SandeshMessageInfo {
+     1: string type
+     2: string level
+     3: u64    messages
+     4: u64    bytes
+}
+
+struct SandeshMessageStat {
+    1: string                            name (key="ObjectGeneratorInfo")
+    2: optional bool                     deleted
+    3: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
+}
+
+uve sandesh SandeshMessageTrace {
+    1: SandeshMessageStat data
+}
+

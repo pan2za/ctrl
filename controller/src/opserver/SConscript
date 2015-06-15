@@ -1,0 +1,114 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('BuildEnv')
+OpEnv = BuildEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        OpEnv.Install(Dir("."), '#controller/src/opserver/' + file))
+
+local_sources = [
+           '__init__.py',
+           'cpuinfo.py',
+           'generator_introspect_util.py',
+           'introspect_util.py',
+           'opserver.py',
+           'opserver_client.py',
+           'opserver_util.py',
+           'overlay_to_underlay_mapper.py',
+           'sandesh_req_impl.py',
+           'uveserver.py',
+           'analytics_db.py',
+           'log.py',
+           'db.py',
+           'stats.py',
+           'flow.py',
+           'api_log.py',
+           'alarmgen.py',
+           'alarmgen_cfg.py',
+           'partition_handler.py',
+           'consistent_schdlr.py',
+          ]
+
+plugins_sources = [
+           'plugins/__init__.py',
+           'plugins/alarm_base.py',
+]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(OpEnv.Install(Dir("opserver"), file))
+for file in plugins_sources:
+    local_sources_rules.append(OpEnv.Install(Dir("opserver/plugins"), file))
+    
+viz_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh', 'opserver/sandesh/', False)
+analytics_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'opserver/sandesh/', False) 
+cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'opserver/sandesh/analytics/', False)
+process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'opserver/sandesh/analytics/', False)
+redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
+discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
+analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
+alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
+alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
+OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
+
+sdist_depends = [setup_sources_rules, local_sources_rules, 
+                 viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
+                 process_info_pkg, discovery_pkg, analytics_database_pkg,
+                 alarmgen_pkg, alarm_sandesh_base_pkg]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+# install everything before building distribution
+OpEnv.Depends(sdist_gen, sdist_depends)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = OpEnv.Command(None,
+                                'setup.py',
+                                cd_cmd + 'python setup.py install %s' %
+                                OpEnv['PYTHON_INSTALL_OPT'])
+    OpEnv.Depends(install_cmd, sdist_depends)
+    OpEnv.Alias('install', install_cmd)
+
+OpEnv['OPSERVER_PKG'] = sdist_gen
+OpEnv.SConscript('plugins/alarm_process_status/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_process_connectivity/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_partial_sysinfo/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_bgp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_xmpp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_vrouter_interface/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
+
+OpEnv.Default(sdist_gen)
+OpEnv.Alias("src/opserver:opserver", sdist_gen)
+
+OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_CONF'], 'contrail-analytics-api.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(
+            OpEnv['INSTALL_INITD'] + '/contrail-analytics-api',
+            'contrail-opserver.initd.supervisord'))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-analytics-api.ini'))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_CONF'], 'contrail-alarm-gen.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(
+            OpEnv['INSTALL_INITD'] + '/contrail-alarm-gen',
+            'contrail-alarm-gen.initd.supervisord'))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-alarm-gen.ini'))
