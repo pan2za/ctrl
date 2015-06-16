@@ -2,6 +2,7 @@ yum install -y python-sphinx scons git python-lxml wget gcc patch make unzip fle
 
 
 easy_install pip
-pip install lxml setuptools sphinx
+pip install lxml setuptools
+pip install -U sphinx -i  http://pypi.douban.com/simple
 
 echo "Next should be upgrade git,scons, autoconf;Install libipfix,protobuf, protobuf-devel, librdkafka" 
