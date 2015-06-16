@@ -55,11 +55,11 @@ Contrail Consistent Interface Naming Scheme
 # gitrepo=$(basename $(git remote show origin | grep "Fetch URL" | cut -d: -f3 ))
 # if [ x$gitrepo != xctrlplane.git ]; then
 gitrepo=contrail-controller
-grep $gitrepo .git/config &> /dev/null
-if [ $? -ne 0 ]; then
-    echo "please run rpmbuild from ctrlplane git tree"
-    exit -1
-fi
+#grep $gitrepo .git/config &> /dev/null
+#if [ $? -ne 0 ]; then
+#    echo "please run rpmbuild from ctrlplane git tree"
+#    exit -1
+#fi
 
 %install
 
