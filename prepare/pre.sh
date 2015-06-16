@@ -1,4 +1,4 @@
-yum install -y python-sphinx scons git python-lxml wget gcc patch make unzip flex bison gcc-c++ openssl-devel autoconf automake vim python-devel python-setuptools protobuf protobuf-devel protobuf-compiler net-snmp-python libtool kernel-devel libpcap-devel boost
+yum install -y nodejs python-sphinx scons git python-lxml wget gcc patch make unzip flex bison gcc-c++ openssl-devel autoconf automake vim python-devel python-setuptools protobuf protobuf-devel protobuf-compiler net-snmp-python libtool kernel-devel libpcap-devel boost
 
 
 easy_install pip

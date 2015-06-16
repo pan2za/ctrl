@@ -272,13 +272,15 @@ contrail-test:
 
 NEUTRON_PLUGIN = neutron-plugin-contrail
 ifneq ($(CONTRAIL_SKU), havana)
-CONTRAIL_HEAT = contrail-heat
+#CONTRAIL_HEAT = contrail-heat
+CONTRAIL_HEAT = 
 else
 CONTRAIL_HEAT = 
 endif
 
 ifneq ($(CONTRAIL_SKU), havana)
-CEILOMETER_PLUGIN = ceilometer-plugin-contrail
+#CEILOMETER_PLUGIN = ceilometer-plugin-contrail
+CEILOMETER_PLUGIN = 
 else
 CEILOMETER_PLUGIN =
 endif
@@ -296,7 +298,7 @@ all: $(PREP) contrail \
        contrail-web-core contrail-web-controller contrail-database \
        ${NEUTRON_PLUGIN} ${CONTRAIL_HEAT} ${CEILOMETER_PLUGIN} \
        contrail-vrouter-init contrail-vrouter-common ${CONTRAIL_NOVA_NETWORKAPI} \
-       contrail-fabric-utils contrail-test
+       contrail-fabric-utils
 
 server-manager-all: contrail-server-manager contrail-server-manager-monitoring contrail-server-manager-client contrail-web-server-manager
 clean:
