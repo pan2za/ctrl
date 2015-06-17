@@ -97,7 +97,6 @@ libvirt: $(PPREP)
                 cd $(BUILD_BASE)/SPECS && \
                 rpmbuild --define '_topdir $(BUILD_BASE)' --define '_builddir $(BUILD_BASE)' \
                 -bp libvirt.spec && \
-                cp $(THIRDPARTY_DIR)/libvirt/libvirt.centos65.spec.patch  $(BUILD_BASE)/SPECS/ && \
                 cd $(THIRDPARTY_DIR) && \
                 rpmbuild --define '_topdir $(BUILD_BASE)' --define '_builddir $(BUILD_BASE)' \
                 -ba $(BUILD_BASE)/SPECS/libvirt.spec $(G_TAG); \
